@@ -4,5 +4,5 @@ tx_import,4.0,160,firm,8014,237,32536.7,-20.2,1481.25,neutral
 long_duration_storage,5.0,300,storage_long,7947,304,40515.9,-19.6,1013.33,neutral
 new_nuclear_smr,3.0,420,clean_firm,8071,180,24491.4,-20.7,428.57,down
 geothermal,2.0,280,clean_firm,8138,113,16386.5,-21.3,403.57,down
+demand_response,6.0,90,demand_flex,8315,0,10876.5,-21.8,3.35,neutral
 new_battery_4h,5.0,220,storage_short,8251,0,0.0,-22.4,0.0,neutral
-demand_response,6.0,90,demand_flex,8335,0,3803.5,-22.2,0.0,neutral

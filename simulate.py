@@ -78,15 +78,21 @@ def generate_dc_load(
     Add data center load on top of baseline.
     DC scenarios: low=+8 GW, medium=+20 GW, high=+40 GW (by 2030).
     flat 24/7 profile with slight flexibility option.
+    When flexible=True, shift 15% from peak (14-20) to off-peak, conserving total energy.
     """
     np.random.seed(7)
     dc_peak = {"low": 8.0, "medium": 20.0, "high": 40.0}[scenario]
     hours = np.arange(8760)
 
     if flexible:
-        # Demand response: shift ~15% of load away from peak hours
+        # Demand response: shift ~15% of load away from peak hours (14-20, 7 hours)
+        # to off-peak hours (17 hours) while conserving total energy.
+        # Shift amount: 0.15 * dc_peak = 6 GW from 7 peak hours to 17 off-peak hours
+        # Off-peak increase: (6 * 7) / 17 = 2.47 GW, so factor = 1 + 2.47/dc_peak
         hour_of_day = hours % 24
-        flex_factor = np.where((hour_of_day >= 14) & (hour_of_day <= 20), 0.85, 1.05)
+        off_peak_increase = (0.15 * dc_peak * 7) / 17  # Energy-conserving calculation
+        off_peak_factor = 1 + (off_peak_increase / dc_peak)
+        flex_factor = np.where((hour_of_day >= 14) & (hour_of_day <= 20), 0.85, off_peak_factor)
         dc = dc_peak * flex_factor
     else:
         dc = np.full(8760, dc_peak)
@@ -103,6 +109,7 @@ def generate_dc_load(
 def compute_available_capacity(
     load_series: pd.Series,
     extra_firm_gw: float = 0.0,
+    extra_dr_gw: float = 0.0,
     outage_stress: str = "normal"
 ) -> pd.Series:
     """
@@ -110,6 +117,7 @@ def compute_available_capacity(
     - Firm plant outages
     - Variable renewable CF profiles
     - Battery storage (4-hour discharge availability)
+    - Demand response (65% capacity credit during peak hours 14-20)
     """
     np.random.seed(99)
     hours = len(load_series)
@@ -145,7 +153,11 @@ def compute_available_capacity(
     # Battery: available ~4h discharge, tracks peak need
     battery_avail = GENERATOR_FLEET["battery_4h"]["capacity_gw"] * 0.85
 
-    total = firm_cap + solar_cap + wind_cap + battery_avail
+    # Demand response: 65% capacity credit during peak hours (14-20)
+    # More realistic for responsive DR that can reduce demand within 10-30 minutes
+    dr_cap = np.where((hour_of_day >= 14) & (hour_of_day <= 20), extra_dr_gw * 0.65, 0)
+
+    total = firm_cap + solar_cap + wind_cap + battery_avail + dr_cap
     return pd.Series(total, index=load_series.index, name="avail_cap_gw")
 
 
@@ -184,12 +196,13 @@ def run_scenario(
     weather: str = "normal",
     flexible_dc: bool = False,
     outage_stress: str = "normal",
-    extra_firm_gw: float = 0.0
+    extra_firm_gw: float = 0.0,
+    extra_dr_gw: float = 0.0
 ) -> Tuple[pd.Series, pd.Series, Dict]:
     baseline = generate_baseline_load(weather=weather)
     dc = generate_dc_load(scenario=dc_growth, flexible=flexible_dc)
     total_load = baseline + dc
-    avail = compute_available_capacity(total_load, extra_firm_gw, outage_stress)
+    avail = compute_available_capacity(total_load, extra_firm_gw, extra_dr_gw, outage_stress)
     metrics = compute_reliability(total_load, avail)
     return total_load, avail, metrics
 
@@ -213,11 +226,22 @@ def score_expansion_options(
             weather=weather,
             flexible_dc=(opt["type"] == "demand_flex"),
             extra_firm_gw=opt["capacity_gw"] if opt["type"] in ("firm", "clean_firm", "storage_long") else 0,
+            extra_dr_gw=opt["capacity_gw"] if opt["type"] == "demand_flex" else 0,
         )
         shortage_reduction = max(0, base_shortage - m["shortage_hours"])
         unserved_reduction = max(0, base_unserved - m["total_unserved_gwh"])
         cost = opt["annualized_cost_m"]
-        score = (shortage_reduction / max(cost, 1)) * 1000
+        
+        # Scoring: prioritize unserved energy reduction, with shortage hours as tiebreaker
+        # Demand response typically reduces unserved energy but may not reduce shortage hours
+        # So we use a weighted score combining both metrics
+        if opt["type"] == "demand_flex":
+            # For DR: weight unserved reduction (primary) + shortage reduction (secondary)
+            score = (unserved_reduction / max(base_unserved, 1) + 
+                    shortage_reduction / max(base_shortage, 1) * 0.3) / max(cost, 1) * 10000
+        else:
+            # For other resources: use shortage reduction (shortage_hours is primary metric)
+            score = (shortage_reduction / max(cost, 1)) * 1000
 
         rows.append({
             "resource":              name,
@@ -257,3 +281,35 @@ def run_scenario_grid() -> pd.DataFrame:
                 })
 
     return pd.DataFrame(rows)
+
+
+# ──────────────────────────────────────────────────────────────
+# Main: Regenerate CSVs
+# ──────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    # Run baseline scenario to get metrics
+    baseline_load, baseline_avail, baseline_metrics = run_scenario(
+        dc_growth="high",
+        weather="summer_extreme",
+        flexible_dc=False
+    )
+    
+    # Generate expansion options scores
+    expansion_scores = score_expansion_options(
+        baseline_metrics=baseline_metrics,
+        dc_growth="high",
+        weather="summer_extreme"
+    )
+    
+    # Export to CSV
+    expansion_scores.to_csv("expansion_options.csv", index=False)
+    print("✓ Regenerated expansion_options.csv")
+    print("\nExpansion Options Summary:")
+    print(expansion_scores[["resource", "capacity_gw", "shortage_reduction", "reliability_score"]])
+    
+    # Generate scenario grid
+    grid = run_scenario_grid()
+    grid.to_csv("scenario_grid.csv", index=False)
+    print("\n✓ Regenerated scenario_grid.csv")
+    print(f"Grid size: {len(grid)} scenarios")

@@ -750,13 +750,13 @@ const SCENARIO_DATA = {
 };
 
 const EXPANSION_DATA = [
-  { resource:"demand_response",     cap:6.0, cost:90,  type:"demand_flex",   shortage_after:7101, shortage_red:1150, rm:-18.1, score:12.78, co2:"neutral" },
-  { resource:"tx_import",           cap:4.0, cost:160, type:"firm",          shortage_after:7380, shortage_red:871,  rm:-19.0, score:5.44,  co2:"neutral" },
-  { resource:"long_duration_storage",cap:5.0,cost:300, type:"storage_long",  shortage_after:7510, shortage_red:741,  rm:-18.4, score:2.47,  co2:"neutral" },
-  { resource:"geothermal",          cap:2.0, cost:280, type:"clean_firm",    shortage_after:7620, shortage_red:631,  rm:-19.6, score:2.25,  co2:"down"    },
-  { resource:"new_nuclear_smr",     cap:3.0, cost:420, type:"clean_firm",    shortage_after:7641, shortage_red:610,  rm:-19.2, score:1.45,  co2:"down"    },
-  { resource:"new_battery_4h",      cap:5.0, cost:220, type:"storage_short", shortage_after:7890, shortage_red:361,  rm:-20.1, score:1.64,  co2:"neutral" },
-  { resource:"new_gas_peaker",      cap:5.0, cost:180, type:"firm",          shortage_after:7960, shortage_red:291,  rm:-19.8, score:1.62,  co2:"up"      },
+  { resource:"new_gas_peaker",       cap:5.0, cost:180, type:"firm",          shortage_after:7947, shortage_red:304, rm:-19.6, score:1688.89, co2:"up"      },
+  { resource:"tx_import",            cap:4.0, cost:160, type:"firm",          shortage_after:8014, shortage_red:237, rm:-20.2, score:1481.25, co2:"neutral" },
+  { resource:"long_duration_storage",cap:5.0, cost:300, type:"storage_long",  shortage_after:7947, shortage_red:304, rm:-19.6, score:1013.33, co2:"neutral" },
+  { resource:"new_nuclear_smr",      cap:3.0, cost:420, type:"clean_firm",    shortage_after:8071, shortage_red:180, rm:-20.7, score:428.57,  co2:"down"    },
+  { resource:"geothermal",           cap:2.0, cost:280, type:"clean_firm",    shortage_after:8138, shortage_red:113, rm:-21.3, score:403.57,  co2:"down"    },
+  { resource:"demand_response",      cap:6.0, cost:90,  type:"demand_flex",   shortage_after:8315, shortage_red:0,   rm:-21.8, score:3.35,   co2:"neutral" },
+  { resource:"new_battery_4h",       cap:5.0, cost:220, type:"storage_short", shortage_after:8251, shortage_red:0,   rm:-22.4, score:0.0,    co2:"neutral" },
 ];
 
 // ──────────────────────────────────────────────────────────────
@@ -780,7 +780,7 @@ function generateHourlyWeek(dc, weather, flex) {
     const diurnal = 10 * Math.sin((hod - 6) * Math.PI / 12) + (hod < 6 ? -8 : 0);
     const b = seasonal + diurnal + (Math.random() - 0.5) * 2;
 
-    const flexFactor = flex && (hod >= 14 && hod <= 20) ? 0.85 : flex ? 1.05 : 1.0;
+    const flexFactor = flex && (hod >= 14 && hod <= 20) ? 0.85 : flex ? (1 + (0.15 * dcPeak * 7) / (17 * dcPeak)) : 1.0;
     const dc_val = dcPeak * flexFactor;
 
     // Available cap: firm ~130 + wind + solar - outages
@@ -1115,14 +1115,14 @@ function updateCharts() {
     "high/normal": -20.4, "high/summer_extreme": -22.4, "high/winter_extreme": -22.0,
   };
   const unservedMap = {
-    "low/normal": 47.2, "low/summer_extreme": 67.8, "low/winter_extreme": 71.2,
-    "medium/normal": 178, "medium/summer_extreme": 201, "medium/winter_extreme": 195,
-    "high/normal": 328, "high/summer_extreme": 360.7, "high/winter_extreme": 349,
+    "low/normal": 103.2, "low/summer_extreme": 138.2, "low/winter_extreme": 121.1,
+    "medium/normal": 170.6, "medium/summer_extreme": 208.6, "medium/winter_extreme": 195.3,
+    "high/normal": 321.8, "high/summer_extreme": 360.7, "high/winter_extreme": 351.5,
   };
   const gapMap = {
-    "low/normal": 18.2, "low/summer_extreme": 24.5, "low/winter_extreme": 22.1,
-    "medium/normal": 38.6, "medium/summer_extreme": 44.2, "medium/winter_extreme": 41.7,
-    "high/normal": 89.4, "high/summer_extreme": 101.8, "high/winter_extreme": 97.2,
+    "low/normal": 53.0, "low/summer_extreme": 69.0, "low/winter_extreme": 53.0,
+    "medium/normal": 65.1, "medium/summer_extreme": 81.3, "medium/winter_extreme": 65.1,
+    "high/normal": 85.3, "high/summer_extreme": 101.8, "high/winter_extreme": 86.3,
   };
 
   const k = `${dcKey}/${wxKey}`;
