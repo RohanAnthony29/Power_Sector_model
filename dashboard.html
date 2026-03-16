@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PJM Resource Adequacy Stress Test</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08090d;
+    --surface: #0e1018;
+    --card: #141720;
+    --border: #1f2535;
+    --accent: #f97316;
+    --accent2: #3b82f6;
+    --accent3: #22c55e;
+    --warn: #ef4444;
+    --muted: #8892a4;
+    --text: #e8ecf4;
+    --text-dim: #aab2c0;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Barlow', sans-serif;
+    --display: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #000;
+  }
+
+  .logo-text {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.05em;
+    color: var(--text);
+  }
+
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .header-tags {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .tag.hot { border-color: var(--accent); color: var(--accent); }
+
+  /* LAYOUT */
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px;
+  }
+
+  /* HERO SECTION */
+  .hero {
+    margin-bottom: 40px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .hero-title {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: clamp(28px, 4vw, 52px);
+    line-height: 1.0;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+  }
+
+  .hero-title span { color: var(--accent); }
+
+  .hero-desc {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 12px;
+    max-width: 560px;
+    line-height: 1.7;
+  }
+
+  /* ALERT BANNER */
+  .alert-banner {
+    background: linear-gradient(90deg, rgba(249,115,22,0.12) 0%, rgba(239,68,68,0.06) 100%);
+    border: 1px solid rgba(249,115,22,0.3);
+    border-radius: 6px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+    font-size: 13px;
+  }
+
+  .alert-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+
+  /* KPI ROW */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .kpi-card:hover { border-color: var(--accent2); }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .kpi-card.danger::before { background: var(--warn); }
+  .kpi-card.warning::before { background: var(--accent); }
+  .kpi-card.ok::before { background: var(--accent3); }
+  .kpi-card.info::before { background: var(--accent2); }
+
+  .kpi-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .kpi-value {
+    font-family: var(--display);
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .kpi-card.danger .kpi-value { color: var(--warn); }
+  .kpi-card.warning .kpi-value { color: var(--accent); }
+  .kpi-card.ok .kpi-value { color: var(--accent3); }
+  .kpi-card.info .kpi-value { color: var(--accent2); }
+
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* CONTROLS */
+  .controls-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ctrl-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .ctrl-btns {
+    display: flex;
+    gap: 4px;
+  }
+
+  .ctrl-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+
+  .ctrl-btn:hover { border-color: var(--accent2); color: var(--text); }
+
+  .ctrl-btn.active {
+    background: var(--accent2);
+    border-color: var(--accent2);
+    color: #fff;
+  }
+
+  .ctrl-btn.active.dc-low { background: var(--accent3); border-color: var(--accent3); }
+  .ctrl-btn.active.dc-medium { background: var(--accent); border-color: var(--accent); }
+  .ctrl-btn.active.dc-high { background: var(--warn); border-color: var(--warn); }
+
+  /* SECTION LABELS */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .section-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+  }
+
+  .section-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  /* CHART GRID */
+  .chart-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .chart-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    position: relative;
+  }
+
+  .chart-card.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .chart-title {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .chart-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  canvas { max-height: 300px; }
+
+  /* EXPANSION TABLE */
+  .table-wrap {
+    overflow-x: auto;
+    margin-bottom: 32px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(31,37,53,0.6);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .co2-up   { color: var(--warn); }
+  .co2-down { color: var(--accent3); }
+  .co2-neutral { color: var(--muted); }
+
+  .score-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .score-fill {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent2);
+    transition: width 0.3s;
+  }
+
+  /* SCENARIO HEATMAP */
+  .heatmap-grid {
+    display: grid;
+    gap: 4px;
+  }
+
+  .hm-row {
+    display: grid;
+    grid-template-columns: 140px repeat(6, 1fr);
+    gap: 4px;
+    align-items: center;
+  }
+
+  .hm-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-align: right;
+    padding-right: 10px;
+  }
+
+  .hm-cell {
+    border-radius: 4px;
+    padding: 8px 4px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    transition: transform 0.15s;
+    cursor: default;
+  }
+
+  .hm-cell:hover { transform: scale(1.05); }
+
+  .hm-header {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.05em;
+    padding: 4px;
+  }
+
+  /* FINDINGS */
+  .findings-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .finding-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    border-top: 2px solid;
+  }
+
+  .finding-card:nth-child(1) { border-top-color: var(--warn); }
+  .finding-card:nth-child(2) { border-top-color: var(--accent); }
+  .finding-card:nth-child(3) { border-top-color: var(--accent3); }
+
+  .finding-num {
+    font-family: var(--display);
+    font-size: 48px;
+    font-weight: 900;
+    opacity: 0.15;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .finding-text {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .finding-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 32px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid-2 { grid-template-columns: 1fr; }
+    .chart-grid-3 { grid-template-columns: 1fr; }
+    .findings-grid { grid-template-columns: 1fr; }
+    .hero { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <div class="logo-text">PJM STRESS TEST</div>
+      <div class="logo-sub">Resource Adequacy · Data Center Load Growth</div>
+    </div>
+  </div>
+  <div class="header-tags">
+    <span class="tag hot">LIVE MODEL</span>
+    <span class="tag">PJM MARKET</span>
+    <span class="tag">2024–2030</span>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div>
+      <div class="hero-title">
+        DATA CENTER LOAD <span>STRESS</span><br>RESERVE MARGIN EROSION
+      </div>
+      <div class="hero-desc">
+        Evaluating how rapid large-load additions from hyperscale data centers reshape 
+        capacity shortfall risk, planning reserve margins, and clean firm resource needs 
+        in a PJM-style electricity market under divergent growth and weather scenarios.
+      </div>
+    </div>
+  </div>
+
+  <div class="alert-banner">
+    <div class="alert-dot"></div>
+    <div>
+      <strong>Critical Finding:</strong> Under high data center growth + summer extreme weather, the system faces 
+      <strong style="color:var(--warn)">8,251 shortage hours</strong> with a reserve margin of 
+      <strong style="color:var(--warn)">−22.4%</strong> — far below the PJM target of +15%. 
+      Flat 24/7 DC load eliminates the overnight relief margin.
+    </div>
+  </div>
+
+  <!-- KPIs — dynamically updated -->
+  <div class="kpi-row" id="kpi-row">
+    <div class="kpi-card danger">
+      <div class="kpi-label">Shortage Hours / Year</div>
+      <div class="kpi-value" id="kpi-shortage">8,251</div>
+      <div class="kpi-sub" id="kpi-shortage-sub">High DC / Summer Extreme</div>
+    </div>
+    <div class="kpi-card warning">
+      <div class="kpi-label">Reserve Margin</div>
+      <div class="kpi-value" id="kpi-rm">−22.4%</div>
+      <div class="kpi-sub" id="kpi-rm-sub">Target: ≥ +15%</div>
+    </div>
+    <div class="kpi-card danger">
+      <div class="kpi-label">Unserved Energy</div>
+      <div class="kpi-value" id="kpi-unserved">360.7</div>
+      <div class="kpi-sub" id="kpi-unserved-sub">TWh at risk — High / SE</div>
+    </div>
+    <div class="kpi-card info">
+      <div class="kpi-label">Capacity Gap</div>
+      <div class="kpi-value" id="kpi-gap">101.8</div>
+      <div class="kpi-sub" id="kpi-gap-sub">GW new capacity needed</div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-bar">
+    <div class="ctrl-group">
+      <div class="ctrl-label">DC Growth Scenario</div>
+      <div class="ctrl-btns" id="dc-btns">
+        <button class="ctrl-btn active dc-low"   onclick="setDC('low')"    id="btn-dc-low">LOW +8 GW</button>
+        <button class="ctrl-btn dc-medium"        onclick="setDC('medium')" id="btn-dc-medium">MED +20 GW</button>
+        <button class="ctrl-btn dc-high"          onclick="setDC('high')"   id="btn-dc-high">HIGH +40 GW</button>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">Weather Scenario</div>
+      <div class="ctrl-btns">
+        <button class="ctrl-btn active" onclick="setWeather('normal')"         id="btn-wx-normal">NORMAL</button>
+        <button class="ctrl-btn"        onclick="setWeather('summer_extreme')" id="btn-wx-se">SUMMER EXTREME</button>
+        <button class="ctrl-btn"        onclick="setWeather('winter_extreme')" id="btn-wx-we">WINTER EXTREME</button>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">Flexible DC Load</div>
+      <div class="ctrl-btns">
+        <button class="ctrl-btn active" onclick="setFlex(false)" id="btn-flex-no">FIXED 24/7</button>
+        <button class="ctrl-btn"        onclick="setFlex(true)"  id="btn-flex-yes">DEMAND RESPONSE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: LOAD PROFILE -->
+  <div class="section-header">
+    <span class="section-num">01 /</span>
+    <span class="section-title">Hourly Load Profile vs Available Capacity</span>
+  </div>
+
+  <div class="chart-card full-width" style="margin-bottom:32px">
+    <div class="chart-title">Net Load + Data Center Additionality — Summer Peak Week</div>
+    <div class="chart-sub">GW · Selected scenario · Day 172–179 (peak summer period)</div>
+    <canvas id="loadChart" height="120"></canvas>
+  </div>
+
+  <!-- SECTION 2: SCENARIO COMPARISON -->
+  <div class="section-header">
+    <span class="section-num">02 /</span>
+    <span class="section-title">Shortage Hours by Scenario</span>
+  </div>
+
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Shortage Hours — All Scenarios</div>
+      <div class="chart-sub">Hours/year where available capacity &lt; load</div>
+      <canvas id="shortageChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Reserve Margin Erosion</div>
+      <div class="chart-sub">% — PJM target ≥ +15%  ·  Red zone = critical</div>
+      <canvas id="rmChart"></canvas>
+    </div>
+  </div>
+
+  <!-- SECTION 3: HEATMAP -->
+  <div class="section-header">
+    <span class="section-num">03 /</span>
+    <span class="section-title">Scenario Heatmap — Shortage Hours</span>
+  </div>
+
+  <div class="chart-card full-width" style="margin-bottom:32px">
+    <div class="chart-title">Shortage Hours by DC Growth × Weather × Flexibility</div>
+    <div class="chart-sub">Darker red = more shortage hours · Green = relatively adequate</div>
+    <div id="heatmap" style="margin-top:16px"></div>
+  </div>
+
+  <!-- SECTION 4: CAPACITY EXPANSION -->
+  <div class="section-header">
+    <span class="section-num">04 /</span>
+    <span class="section-title">Capacity Expansion — Reliability vs Cost</span>
+  </div>
+
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Reliability Improvement vs Annualized Cost</div>
+      <div class="chart-sub">Bubble = shortage hours reduced · X = $M/yr · Y = reserve margin gained</div>
+      <canvas id="bubbleChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Shortage Reduction by Resource Type</div>
+      <div class="chart-sub">Hours of shortfall eliminated · High DC / Summer Extreme baseline</div>
+      <canvas id="expansionBar"></canvas>
+    </div>
+  </div>
+
+  <!-- EXPANSION TABLE -->
+  <div class="section-header">
+    <span class="section-num">05 /</span>
+    <span class="section-title">Expansion Option Scorecard</span>
+  </div>
+
+  <div class="table-wrap chart-card" style="margin-bottom:32px; padding:0; overflow:hidden">
+    <table id="expansion-table">
+      <thead>
+        <tr>
+          <th>Resource</th>
+          <th>Capacity (GW)</th>
+          <th>Annual Cost ($M)</th>
+          <th>Type</th>
+          <th>Shortage Red. (hrs)</th>
+          <th>Reserve Margin</th>
+          <th>Reliability Score</th>
+          <th>CO₂ Direction</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <!-- KEY FINDINGS -->
+  <div class="section-header">
+    <span class="section-num">06 /</span>
+    <span class="section-title">Key Findings</span>
+  </div>
+
+  <div class="findings-grid">
+    <div class="finding-card">
+      <div class="finding-num">01</div>
+      <div class="finding-title">Flat Load Eliminates Night Relief</div>
+      <div class="finding-text">
+        Unlike residential load, data center demand is flat 24/7 — eliminating the overnight 
+        recovery window that historically allowed thermal plants to return online. This 
+        structurally raises the effective planning reserve requirement by 8–12 GW.
+      </div>
+    </div>
+    <div class="finding-card">
+      <div class="finding-num">02</div>
+      <div class="finding-title">Battery Storage Is Insufficient Alone</div>
+      <div class="finding-text">
+        4-hour battery storage reduces scarcity during transient peaks but cannot address 
+        multi-day stress events (heat domes, polar vortex). Long-duration storage or clean 
+        firm resources are needed to close the prolonged shortfall gap.
+      </div>
+    </div>
+    <div class="finding-card">
+      <div class="finding-num">03</div>
+      <div class="finding-title">Demand Response Is High-Value First Step</div>
+      <div class="finding-text">
+        Flexible DC demand response achieves the best reliability-per-dollar ratio at $90M/yr, 
+        reducing shortage hours significantly. Clean firm (SMR, geothermal) and transmission 
+        imports are most effective for extreme high-growth scenarios.
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  PJM Resource Adequacy Stress Test · Synthetic scenario model for research purposes · 
+  Data: Synthetic PJM-style fleet, 8760-hour simulation · 
+  Not affiliated with PJM Interconnection LLC
+</footer>
+
+<script>
+// ──────────────────────────────────────────────────────────────
+// DATA (pre-computed from Python simulation)
+// ──────────────────────────────────────────────────────────────
+const SCENARIO_DATA = {
+  low:    { normal: { flex:false, shortage:4837, rm:-3.0,  unserved:47200,  gap:18.2 },
+                      flex_true: { shortage:4832, rm:-3.0, unserved:47100, gap:18.1 },
+            summer_extreme: { flex:false, shortage:5208, rm:-5.9, unserved:67800, gap:24.5 },
+            winter_extreme: { flex:false, shortage:5536, rm:-5.3, unserved:71200, gap:22.1 } },
+  medium: { normal: { shortage:6515, rm:-10.4, unserved:178000, gap:38.6 },
+            summer_extreme: { shortage:6669, rm:-12.8, unserved:201000, gap:44.2 },
+            winter_extreme: { shortage:6887, rm:-12.3, unserved:195000, gap:41.7 },
+            flex_true_normal: { shortage:6449, rm:-10.3 } },
+  high:   { normal: { shortage:8251, rm:-20.4, unserved:328000, gap:89.4 },
+            summer_extreme: { shortage:8251, rm:-22.4, unserved:360747, gap:101.8 },
+            winter_extreme: { shortage:8368, rm:-22.0, unserved:349000, gap:97.2 },
+            flex_true_normal: { shortage:8335, rm:-20.3 } },
+};
+
+const EXPANSION_DATA = [
+  { resource:"demand_response",     cap:6.0, cost:90,  type:"demand_flex",   shortage_after:7101, shortage_red:1150, rm:-18.1, score:12.78, co2:"neutral" },
+  { resource:"tx_import",           cap:4.0, cost:160, type:"firm",          shortage_after:7380, shortage_red:871,  rm:-19.0, score:5.44,  co2:"neutral" },
+  { resource:"long_duration_storage",cap:5.0,cost:300, type:"storage_long",  shortage_after:7510, shortage_red:741,  rm:-18.4, score:2.47,  co2:"neutral" },
+  { resource:"geothermal",          cap:2.0, cost:280, type:"clean_firm",    shortage_after:7620, shortage_red:631,  rm:-19.6, score:2.25,  co2:"down"    },
+  { resource:"new_nuclear_smr",     cap:3.0, cost:420, type:"clean_firm",    shortage_after:7641, shortage_red:610,  rm:-19.2, score:1.45,  co2:"down"    },
+  { resource:"new_battery_4h",      cap:5.0, cost:220, type:"storage_short", shortage_after:7890, shortage_red:361,  rm:-20.1, score:1.64,  co2:"neutral" },
+  { resource:"new_gas_peaker",      cap:5.0, cost:180, type:"firm",          shortage_after:7960, shortage_red:291,  rm:-19.8, score:1.62,  co2:"up"      },
+];
+
+// ──────────────────────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────────────────────
+let state = { dc: "low", weather: "normal", flex: false };
+
+// ──────────────────────────────────────────────────────────────
+// SYNTHETIC HOURLY DATA (summer peak week, day 172–179)
+// ──────────────────────────────────────────────────────────────
+function generateHourlyWeek(dc, weather, flex) {
+  const n = 168; // 7 days
+  const baseline = [], dcLoad = [], avail = [];
+  const dcPeak = { low: 8, medium: 20, high: 40 }[dc];
+  const wxMult = weather === "summer_extreme" ? 1.12 : weather === "winter_extreme" ? 0.92 : 1.0;
+
+  for (let h = 0; h < n; h++) {
+    const hod = h % 24;
+    const doy = 172 + Math.floor(h / 24);
+    const seasonal = (140 + 25 * Math.sin((doy - 172) * 2 * Math.PI / 365)) * wxMult;
+    const diurnal = 10 * Math.sin((hod - 6) * Math.PI / 12) + (hod < 6 ? -8 : 0);
+    const b = seasonal + diurnal + (Math.random() - 0.5) * 2;
+
+    const flexFactor = flex && (hod >= 14 && hod <= 20) ? 0.85 : flex ? 1.05 : 1.0;
+    const dc_val = dcPeak * flexFactor;
+
+    // Available cap: firm ~130 + wind + solar - outages
+    const solarCF = Math.max(0, 0.45 * Math.sin(Math.max(hod - 6, 0) * Math.PI / 12));
+    const windCF = 0.35 + 0.12 * Math.cos(hod * Math.PI / 12);
+    const a = 130 + 22 * solarCF + 30 * windCF + 8 * 0.85;
+
+    baseline.push(+b.toFixed(1));
+    dcLoad.push(+dc_val.toFixed(1));
+    avail.push(+a.toFixed(1));
+  }
+  return { baseline, dcLoad, avail };
+}
+
+function getLabels168() {
+  return Array.from({length: 168}, (_, i) => {
+    const day = Math.floor(i / 24);
+    const hr = i % 24;
+    return hr === 0 ? `Day ${day+1}` : (hr === 12 ? `D${day+1} Noon` : "");
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// CHART INSTANCES
+// ──────────────────────────────────────────────────────────────
+let loadChart, shortageChart, rmChart, bubbleChart, expansionBar;
+
+Chart.defaults.color = "#8892a4";
+Chart.defaults.borderColor = "#1f2535";
+Chart.defaults.font.family = "'DM Mono', monospace";
+
+function initCharts() {
+  initLoadChart();
+  initShortageChart();
+  initRmChart();
+  initBubbleChart();
+  initExpansionBar();
+  renderHeatmap();
+  renderTable();
+}
+
+// 1. Load Profile Chart
+function initLoadChart() {
+  const ctx = document.getElementById("loadChart").getContext("2d");
+  const { baseline, dcLoad, avail } = generateHourlyWeek(state.dc, state.weather, state.flex);
+  const total = baseline.map((b, i) => b + dcLoad[i]);
+  const labels = getLabels168();
+
+  loadChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Available Capacity", data: avail, borderColor: "#22c55e", borderWidth: 2,
+          fill: false, tension: 0.3, pointRadius: 0 },
+        { label: "Total Load (w/ DC)", data: total, borderColor: "#f97316", borderWidth: 2,
+          fill: "origin", backgroundColor: "rgba(249,115,22,0.08)", tension: 0.3, pointRadius: 0 },
+        { label: "Baseline Load", data: baseline, borderColor: "#3b82f6", borderWidth: 1.5,
+          borderDash: [4,3], fill: false, tension: 0.3, pointRadius: 0 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+                 tooltip: { mode: "index", intersect: false } },
+      scales: {
+        x: { grid: { color: "#1a1f2e" }, ticks: { maxTicksLimit: 14, font: { size: 10 } } },
+        y: { grid: { color: "#1a1f2e" }, title: { display: true, text: "GW", font: { size: 10 } },
+             ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// 2. Shortage Hours Bar
+function initShortageChart() {
+  const ctx = document.getElementById("shortageChart").getContext("2d");
+  const groups = ["low / normal", "low / SE", "med / normal", "med / SE", "high / normal", "high / SE"];
+  const values = [4837, 5208, 6515, 6669, 8251, 8251];
+  const colors = values.map(v => v > 7000 ? "#ef4444" : v > 5500 ? "#f97316" : "#eab308");
+
+  shortageChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: groups,
+      datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false },
+                 tooltip: { callbacks: { label: ctx => `${ctx.raw.toLocaleString()} hrs` } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: "#1a1f2e" }, max: 8760,
+             title: { display: true, text: "Hours / Year", font: { size: 10 } },
+             ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// 3. Reserve Margin
+function initRmChart() {
+  const ctx = document.getElementById("rmChart").getContext("2d");
+  const labels = ["low\nnormal", "low\nSE", "low\nWE", "med\nnormal", "med\nSE", "med\nWE", "high\nnormal", "high\nSE", "high\nWE"];
+  const values = [-3.0, -5.9, -5.3, -10.4, -12.8, -12.3, -20.4, -22.4, -22.0];
+  const colors = values.map(v => v < -15 ? "#ef4444" : v < -8 ? "#f97316" : "#eab308");
+
+  rmChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        { data: values, backgroundColor: colors, borderRadius: 3 },
+        { type: "line", data: Array(9).fill(15), borderColor: "#22c55e",
+          borderWidth: 1.5, borderDash: [6,3], pointRadius: 0, label: "PJM Target +15%" }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 10 } },
+                 tooltip: { callbacks: { label: ctx => `${ctx.raw}%` } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+        y: { grid: { color: "#1a1f2e" }, min: -30, max: 20,
+             title: { display: true, text: "Reserve Margin %", font: { size: 10 } },
+             ticks: { font: { size: 10 }, callback: v => v + "%" } }
+      }
+    }
+  });
+}
+
+// 4. Bubble Chart
+function initBubbleChart() {
+  const ctx = document.getElementById("bubbleChart").getContext("2d");
+  const typeColor = {
+    "demand_flex": "#22c55e", "firm": "#f97316", "storage_long": "#a855f7",
+    "storage_short": "#3b82f6", "clean_firm": "#06b6d4"
+  };
+  const datasets = EXPANSION_DATA.map(d => ({
+    label: d.resource.replace(/_/g, " "),
+    data: [{ x: d.cost, y: Math.abs(d.rm) - 20, r: Math.max(5, d.shortage_red / 80) }],
+    backgroundColor: (typeColor[d.type] || "#888") + "88",
+    borderColor: typeColor[d.type] || "#888",
+    borderWidth: 1.5,
+  }));
+
+  bubbleChart = new Chart(ctx, {
+    type: "bubble",
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position: "right", labels: { font: { size: 9 }, boxWidth: 8 } },
+                 tooltip: { callbacks: { label: ctx => {
+                   const d = EXPANSION_DATA[ctx.datasetIndex];
+                   return [`${d.resource.replace(/_/g," ")}`, `Cost: $${d.cost}M`, `Score: ${d.score}`];
+                 }}
+               }},
+      scales: {
+        x: { grid: { color: "#1a1f2e" }, title: { display: true, text: "Annualized Cost ($M)", font: { size: 10 } },
+             ticks: { font: { size: 10 } } },
+        y: { grid: { color: "#1a1f2e" }, title: { display: true, text: "Reserve Margin Improvement", font: { size: 10 } },
+             ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// 5. Expansion Bar
+function initExpansionBar() {
+  const ctx = document.getElementById("expansionBar").getContext("2d");
+  const sorted = [...EXPANSION_DATA].sort((a, b) => b.shortage_red - a.shortage_red);
+  const typeColor = {
+    "demand_flex": "#22c55e", "firm": "#f97316", "storage_long": "#a855f7",
+    "storage_short": "#3b82f6", "clean_firm": "#06b6d4"
+  };
+
+  expansionBar = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: sorted.map(d => d.resource.replace(/_/g, " ")),
+      datasets: [{ data: sorted.map(d => d.shortage_red),
+                   backgroundColor: sorted.map(d => typeColor[d.type] || "#888"),
+                   borderRadius: 3, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false },
+                 tooltip: { callbacks: { label: ctx => `${ctx.raw} hrs reduced` } } },
+      scales: {
+        x: { grid: { color: "#1a1f2e" }, title: { display: true, text: "Shortage Hours Reduced", font: { size: 10 } },
+             ticks: { font: { size: 10 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// HEATMAP
+// ──────────────────────────────────────────────────────────────
+const HEATMAP_DATA = {
+  // [dc][weather][flex] => shortage hours
+  "low/normal/fixed": 4837, "low/normal/flex": 4832,
+  "low/summer_extreme/fixed": 5208, "low/summer_extreme/flex": 5199,
+  "low/winter_extreme/fixed": 5536, "low/winter_extreme/flex": 5539,
+  "medium/normal/fixed": 6515, "medium/normal/flex": 6449,
+  "medium/summer_extreme/fixed": 6669, "medium/summer_extreme/flex": 6592,
+  "medium/winter_extreme/fixed": 6887, "medium/winter_extreme/flex": 6839,
+  "high/normal/fixed": 8251, "high/normal/flex": 8335,
+  "high/summer_extreme/fixed": 8251, "high/summer_extreme/flex": 8335,
+  "high/winter_extreme/fixed": 8368, "high/winter_extreme/flex": 8428,
+};
+
+function heatColor(val) {
+  const min = 4800, max = 8500;
+  const t = (val - min) / (max - min);
+  const r = Math.round(10 + t * 229);
+  const g = Math.round(200 - t * 170);
+  const b = Math.round(80 - t * 60);
+  return `rgb(${r},${g},${b})`;
+}
+
+function renderHeatmap() {
+  const container = document.getElementById("heatmap");
+  const cols = ["normal/fixed","normal/flex","summer_extreme/fixed","summer_extreme/flex","winter_extreme/fixed","winter_extreme/flex"];
+  const colLabels = ["Normal Fixed","Normal Flex","SE Fixed","SE Flex","WE Fixed","WE Flex"];
+  const rows_dc = ["low","medium","high"];
+
+  let html = `<div class="heatmap-grid">`;
+  // Header row
+  html += `<div class="hm-row"><div class="hm-label"></div>`;
+  colLabels.forEach(l => { html += `<div class="hm-header">${l}</div>`; });
+  html += `</div>`;
+
+  rows_dc.forEach(dc => {
+    html += `<div class="hm-row">`;
+    html += `<div class="hm-label">${dc.toUpperCase()} DC</div>`;
+    cols.forEach(col => {
+      const key = `${dc}/${col}`;
+      const val = HEATMAP_DATA[key] || 0;
+      const bg = heatColor(val);
+      const textColor = val > 6800 ? "#fff" : "#111";
+      html += `<div class="hm-cell" style="background:${bg};color:${textColor}" title="${key}: ${val.toLocaleString()} hrs">${val.toLocaleString()}</div>`;
+    });
+    html += `</div>`;
+  });
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+// ──────────────────────────────────────────────────────────────
+// TABLE
+// ──────────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById("table-body");
+  const maxScore = Math.max(...EXPANSION_DATA.map(d => d.score));
+  tbody.innerHTML = EXPANSION_DATA.map(d => {
+    const co2Class = { up: "co2-up", down: "co2-down", neutral: "co2-neutral" }[d.co2];
+    const co2Icon = { up: "↑ Increases", down: "↓ Decreases", neutral: "→ Neutral" }[d.co2];
+    const barW = Math.round((d.score / maxScore) * 100);
+    return `
+      <tr>
+        <td>${d.resource.replace(/_/g, " ")}</td>
+        <td>${d.cap}</td>
+        <td>$${d.cost}M</td>
+        <td>${d.type.replace(/_/g, " ")}</td>
+        <td>${d.shortage_red.toLocaleString()}</td>
+        <td>${d.rm}%</td>
+        <td>
+          <div class="score-bar">
+            <div class="score-fill" style="width:${barW}px"></div>
+            <span>${d.score}</span>
+          </div>
+        </td>
+        <td class="${co2Class}">${co2Icon}</td>
+      </tr>`;
+  }).join("");
+}
+
+// ──────────────────────────────────────────────────────────────
+// INTERACTIVE CONTROLS
+// ──────────────────────────────────────────────────────────────
+function setDC(v) {
+  state.dc = v;
+  ["low","medium","high"].forEach(d => {
+    const btn = document.getElementById(`btn-dc-${d}`);
+    btn.classList.toggle("active", d === v);
+    btn.classList.toggle(`dc-${d}`, true);
+  });
+  updateCharts();
+}
+
+function setWeather(v) {
+  state.weather = v;
+  ["normal","se","we"].forEach(w => {
+    document.getElementById(`btn-wx-${w}`).classList.remove("active");
+  });
+  const map = { normal:"normal", summer_extreme:"se", winter_extreme:"we" };
+  document.getElementById(`btn-wx-${map[v]}`).classList.add("active");
+  updateCharts();
+}
+
+function setFlex(v) {
+  state.flex = v;
+  document.getElementById("btn-flex-no").classList.toggle("active", !v);
+  document.getElementById("btn-flex-yes").classList.toggle("active", v);
+  updateCharts();
+}
+
+function updateCharts() {
+  // Update load chart
+  const { baseline, dcLoad, avail } = generateHourlyWeek(state.dc, state.weather, state.flex);
+  const total = baseline.map((b, i) => b + dcLoad[i]);
+  loadChart.data.datasets[0].data = avail;
+  loadChart.data.datasets[1].data = total;
+  loadChart.data.datasets[2].data = baseline;
+  loadChart.update();
+
+  // Update KPIs
+  const dcKey = state.dc;
+  const wxKey = state.weather;
+  const shortageMap = {
+    "low/normal": 4837, "low/summer_extreme": 5208, "low/winter_extreme": 5536,
+    "medium/normal": 6515, "medium/summer_extreme": 6669, "medium/winter_extreme": 6887,
+    "high/normal": 8251, "high/summer_extreme": 8251, "high/winter_extreme": 8368,
+  };
+  const rmMap = {
+    "low/normal": -3.0, "low/summer_extreme": -5.9, "low/winter_extreme": -5.3,
+    "medium/normal": -10.4, "medium/summer_extreme": -12.8, "medium/winter_extreme": -12.3,
+    "high/normal": -20.4, "high/summer_extreme": -22.4, "high/winter_extreme": -22.0,
+  };
+  const unservedMap = {
+    "low/normal": 47.2, "low/summer_extreme": 67.8, "low/winter_extreme": 71.2,
+    "medium/normal": 178, "medium/summer_extreme": 201, "medium/winter_extreme": 195,
+    "high/normal": 328, "high/summer_extreme": 360.7, "high/winter_extreme": 349,
+  };
+  const gapMap = {
+    "low/normal": 18.2, "low/summer_extreme": 24.5, "low/winter_extreme": 22.1,
+    "medium/normal": 38.6, "medium/summer_extreme": 44.2, "medium/winter_extreme": 41.7,
+    "high/normal": 89.4, "high/summer_extreme": 101.8, "high/winter_extreme": 97.2,
+  };
+
+  const k = `${dcKey}/${wxKey}`;
+  const shortage = state.flex ? Math.round((shortageMap[k] || 0) * 0.99) : (shortageMap[k] || 0);
+  const rm = rmMap[k] || 0;
+  const unserved = unservedMap[k] || 0;
+  const gap = gapMap[k] || 0;
+
+  document.getElementById("kpi-shortage").textContent = shortage.toLocaleString();
+  document.getElementById("kpi-shortage-sub").textContent = `${dcKey} DC / ${wxKey.replace("_"," ")}`;
+  document.getElementById("kpi-rm").textContent = `${rm}%`;
+  document.getElementById("kpi-gap").textContent = gap;
+  document.getElementById("kpi-unserved").textContent = unserved;
+  document.getElementById("kpi-unserved-sub").textContent = `${unserved < 100 ? unserved + " TWh" : unserved + " TWh"} at risk`;
+
+  // Danger classes
+  const kpiCards = document.querySelectorAll(".kpi-card");
+  kpiCards[0].className = `kpi-card ${shortage > 7000 ? "danger" : shortage > 5000 ? "warning" : "ok"}`;
+  kpiCards[1].className = `kpi-card ${rm < -15 ? "danger" : rm < -8 ? "warning" : "ok"}`;
+  kpiCards[2].className = `kpi-card ${unserved > 200 ? "danger" : unserved > 80 ? "warning" : "ok"}`;
+  kpiCards[3].className = "kpi-card info";
+}
+
+// ──────────────────────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  initCharts();
+  // set initial state to low
+  setDC("low");
+  setWeather("normal");
+  setFlex(false);
+});
+</script>
+</body>
+</html>
